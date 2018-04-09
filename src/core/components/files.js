@@ -21,16 +21,16 @@ function noop () {}
 
 function prepareFile (self, opts, file, callback) {
   opts = opts || {}
+  
+  let cid = new CID(file.multihash)
+
+  if (opts.cidVersion === 1) {
+    cid = cid.toV1()
+  }
 
   waterfall([
     (cb) => opts.onlyHash ? cb(null, file) : self.object.get(file.multihash, cb),
     (node, cb) => {
-      let cid = new CID(node.multihash)
-
-      if (opts['cid-version'] === 1) {
-        cid = cid.toV1()
-      }
-
       const b58Hash = cid.toBaseEncodedString()
 
       cb(null, {
@@ -109,6 +109,10 @@ module.exports = function files (self) {
         ? 1000
         : Infinity
     }, options)
+    
+    if (opts.hashAlg && opts.cidVersion !== 1) {
+      opts.cidVersion = 1
+    }
 
     let total = 0
     let prog = opts.progress || (() => {})
@@ -198,6 +202,13 @@ module.exports = function files (self) {
 
       if (!ok) {
         return callback(new Error('first arg must be a buffer, readable stream, an object or array of objects'))
+      }
+      
+      options = options || {}
+
+      // CID v0 is for multihashes encoded with sha2-256
+      if (options.hashAlg && options.cidVersion !== 1) {
+        options.cidVersion = 1
       }
 
       pull(
